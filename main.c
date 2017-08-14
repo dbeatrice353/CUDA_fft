@@ -15,12 +15,12 @@ typedef struct
 } fComplex;
 #endif
 
-void loadInputData(float *array){
+void loadInputData(fComplex array[DATA_LENGTH]){
   int i;
   FILE * fp;
   fp = fopen("input.txt","r");
   for(i=0; i<DATA_LENGTH; i++){
-    fscanf(fp,"%f\n",array+i);
+    fscanf(fp,"%f\t%f\n",&(array[i].x), &(array[i].y));
   }
 }
 
@@ -29,7 +29,7 @@ void storeOutputData(fComplex *array){
   FILE * fp;
   fp = fopen("output.txt","w");
   for(i=0; i<DATA_LENGTH; i++){
-    fprintf(fp,"%f\t%f\n",*(array+2*i),*(array+2*i+1));
+    fprintf(fp,"%f\t%f\n",array[i].x,array[i].y);
   }
 }
 
@@ -48,30 +48,30 @@ int main(void){
   // Create a "plan" object.
   cufftHandle fft_plan;
 
-  float *host_signal;
+  fComplex *host_signal;
   fComplex *host_spectrum;
-  float *device_signal;
+  fComplex *device_signal;
   fComplex *device_spectrum;
 
   // Allocate memeory on the host for the signal and spectrum data.
-  host_signal = (float *)malloc(DATA_LENGTH*sizeof(float));
+  host_signal = (fComplex *)malloc(DATA_LENGTH*sizeof(fComplex));
   host_spectrum = (fComplex *)malloc((DATA_LENGTH+1)*sizeof(fComplex));
 
   // Allocate memory on the device for the signal and spectrum data.
-  cudaErrorCheck(cudaMalloc((void **)&device_signal, DATA_LENGTH*sizeof(float)));
+  cudaErrorCheck(cudaMalloc((void **)&device_signal, DATA_LENGTH*sizeof(fComplex)));
   cudaErrorCheck(cudaMalloc((void **)&device_spectrum, (DATA_LENGTH+1)*sizeof(fComplex)));
 
   // Load the signal data into the host memory.
   loadInputData(host_signal);
 
   // Copy the signal data from the host to the device.
-  cudaErrorCheck(cudaMemcpy(device_signal, host_signal, DATA_LENGTH*sizeof(float), cudaMemcpyHostToDevice));
+  cudaErrorCheck(cudaMemcpy(device_signal, host_signal, DATA_LENGTH*sizeof(fComplex), cudaMemcpyHostToDevice));
 
   // Configure the "plan" object.
-  cudaErrorCheck(cufftPlan1d(&fft_plan, DATA_LENGTH, CUFFT_R2C, 1));
+  cudaErrorCheck(cufftPlan1d(&fft_plan, DATA_LENGTH, CUFFT_C2C, 1));
 
   // Run the fft.
-  cudaErrorCheck(cufftExecR2C(fft_plan, (cufftReal *)device_signal, (cufftComplex *)device_spectrum));
+  cudaErrorCheck(cufftExecC2C(fft_plan, (cufftComplex *)device_signal, (cufftComplex *)device_spectrum,CUFFT_FORWARD));
 
   // Make sure the fft completes.
   cudaErrorCheck(cudaDeviceSynchronize());
